@@ -1,5 +1,6 @@
 import logging
 import pprint
+import json
 import traceback
 import threading
 import time
@@ -154,12 +155,12 @@ class Task(object):
         else:
             print(f'{msg:<15}')
         if result.failed or result.exception:
-            print(result.result)
+            print(Fore.RED + result.result)
         elif getattr(result, 'print_result', False):
             if isinstance(result.result, str) or isinstance(result.result, bytes):
-                print(result.result)
+                print(Fore.GREEN + result.result)
             else:
-                pprint.pprint(result.result, indent=2)
+                print(Fore.GREEN + json.dumps(result.result, indent=2))
         PRINT_LOCK.release()
 
 
