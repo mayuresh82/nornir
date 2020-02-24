@@ -1,16 +1,9 @@
 import logging
-import pprint
-import json
 import traceback
-import threading
-import time
-
-from colorama import Fore, Back, Style, init
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Union
 
 from nornir.core.exceptions import NornirExecutionError
 from nornir.core.exceptions import NornirSubTaskError
-
 
 if TYPE_CHECKING:
     from nornir.core.inventory import Host
@@ -18,9 +11,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-PRINT_LOCK = threading.Lock()
 
 
 class Task(object):
@@ -86,7 +76,6 @@ class Task(object):
         self.host = host
         self.nornir = nornir
 
-        start = time.time()
         if self.parent_task is not None:
             self.nornir.processors.subtask_instance_started(self, host)
         else:
@@ -117,10 +106,8 @@ class Task(object):
             )
             r = Result(host, exception=e, result=tb, failed=True)
 
-        duration = time.time() - start if self.params.get('profile_time', False) else None
         r.name = self.name
         r.severity_level = logging.ERROR if r.failed else self.severity_level
-        self._print_result(r, duration)
         self.results.insert(0, r)
 
         if self.parent_task is not None:
@@ -165,26 +152,6 @@ class Task(object):
         Returns whether current task is a dry_run or not.
         """
         return override if override is not None else self.nornir.data.dry_run
-
-    def _print_result(self, result, duration):
-        PRINT_LOCK.acquire()
-        text = 'failed' if result.failed else 'ok'
-        msg = (f'{self.name} -> ' + _get_color(result, False) +
-               text + ': ' + f'[{result.host.name}]' + Style.RESET_ALL)
-        if duration:
-            tmsg = Back.RED + Style.BRIGHT + \
-                'Total: {:.2f} seconds'.format(duration) + Style.RESET_ALL
-            print(f'{msg:<15}{tmsg:>60}')
-        else:
-            print(f'{msg:<15}')
-        if result.failed or result.exception:
-            print(Fore.RED + result.result)
-        elif getattr(result, 'print_result', False):
-            if isinstance(result.result, str) or isinstance(result.result, bytes):
-                print(Fore.GREEN + result.result)
-            else:
-                print(Fore.GREEN + json.dumps(result.result, indent=2))
-        PRINT_LOCK.release()
 
 
 class Result(object):
@@ -313,13 +280,3 @@ class MultiResult(List[Any]):
         """
         if self.failed:
             raise NornirExecutionError(self)
-
-
-def _get_color(result, failed):
-    if result.failed or failed:
-        color = Fore.RED
-    elif result.changed:
-        color = Fore.YELLOW
-    else:
-        color = Fore.GREEN
-    return color
